@@ -10,6 +10,15 @@ export default defineConfig({
         plugins: [['babel-plugin-react-compiler']],
       },
     }),
-    tailwindcss() // Add this line
+    tailwindcss()
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080', // Your Spring Boot server
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })
