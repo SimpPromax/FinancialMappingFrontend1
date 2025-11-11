@@ -9,7 +9,7 @@ const ExcelDataCollector = () => {
   const [availableSheetNames, setAvailableSheetNames] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load available file names on component mount
+  // Load available file names on component mount and create default sheet
   useEffect(() => {
     const loadExcelFiles = async () => {
       try {
@@ -28,6 +28,15 @@ const ExcelDataCollector = () => {
     };
 
     loadExcelFiles();
+    
+    // Create default blank sheet
+    const defaultSheet = {
+      id: Date.now() + Math.random(),
+      sheetName: '',
+      elements: [],
+      headerText: 'Select File'
+    };
+    setSheets([defaultSheet]);
   }, []);
 
   const showAlert = (type, message) => {
@@ -44,7 +53,7 @@ const ExcelDataCollector = () => {
 
   const addNewSheet = () => {
     const newSheet = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       sheetName: '',
       elements: [],
       headerText: 'Select File'
@@ -52,7 +61,23 @@ const ExcelDataCollector = () => {
     setSheets(prev => [...prev, newSheet]);
   };
 
+  const isSheetAlreadySelected = (sheetName) => {
+    return sheets.some(sheet => sheet.sheetName === sheetName);
+  };
+
   const deleteSheet = (sheetId) => {
+    // Prevent deleting the last sheet
+    if (sheets.length === 1) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Delete Last Sheet',
+        text: 'You must have at least one sheet. Add a new sheet first if you want to delete this one.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3085d6',
+      });
+      return;
+    }
+
     Swal.fire({
       title: 'Confirm Deletion',
       text: 'Are you sure you want to delete this sheet?',
@@ -69,6 +94,30 @@ const ExcelDataCollector = () => {
   };
 
   const handleSheetNameChange = async (sheetId, newSheetName) => {
+    console.log('📄 Sheet selected:', newSheetName);
+
+    // Check if sheet is already selected in another instance
+    if (newSheetName && isSheetAlreadySelected(newSheetName)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sheet Already Selected',
+        html: `
+          <p>The sheet "<strong>${newSheetName}</strong>" is already selected in another instance.</p>
+          <p class="mt-2">Only one instance per sheet is permitted.</p>
+        `,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3085d6',
+      });
+      
+      // Reset the selection for this sheet
+      setSheets(prev => prev.map(sheet => 
+        sheet.id === sheetId 
+          ? { ...sheet, sheetName: '', headerText: 'Select File', elements: [] }
+          : sheet
+      ));
+      return;
+    }
+
     setSheets(prev => prev.map(sheet => 
       sheet.id === sheetId 
         ? { ...sheet, sheetName: newSheetName, headerText: newSheetName || 'Select File' }
@@ -80,13 +129,16 @@ const ExcelDataCollector = () => {
         const response = await axios.get(`/api/excel/elements?sheetName=${encodeURIComponent(newSheetName)}`);
         const predefinedElements = Array.isArray(response.data) ? response.data : [];
         
+        console.log('🔍 API Response elements:', predefinedElements);
+        console.log('🆔 First element ID:', predefinedElements[0]?.elementId);
+
         if (predefinedElements && predefinedElements.length > 0) {
           setSheets(prev => prev.map(sheet => 
             sheet.id === sheetId 
               ? { 
                   ...sheet, 
                   elements: predefinedElements.map(el => ({
-                    id: Date.now() + Math.random(),
+                    id: el.elementId || Date.now() + Math.random(),
                     elementName: el.excelElement || '',
                     cellValue: el.exelCellValue || ''
                   }))
@@ -248,6 +300,25 @@ const ExcelDataCollector = () => {
 
   const canSave = validateSaveButton();
 
+  // Filter available sheet names to exclude already selected ones
+  const getAvailableOptionsForSheet = (currentSheet) => {
+    return availableSheetNames.filter(fileName => 
+      !sheets.some(sheet => sheet.sheetName === fileName && sheet.id !== currentSheet.id)
+    );
+  };
+
+  // Get dropdown options for a specific sheet
+  const getDropdownOptions = (sheet) => {
+    const availableOptions = getAvailableOptionsForSheet(sheet);
+    
+    // If this sheet already has a selection, include it in the options
+    if (sheet.sheetName && !availableOptions.includes(sheet.sheetName)) {
+      return [sheet.sheetName, ...availableOptions];
+    }
+    
+    return availableOptions;
+  };
+
   return (
     <div 
       className="min-h-screen bg-cover bg-center bg-fixed"
@@ -334,7 +405,7 @@ const ExcelDataCollector = () => {
 
                 <div className="space-y-6">
                   {sheets.map((sheet) => (
-                    <div key={sheet.id} className="border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                    <div key={`sheet-${sheet.id}`} className="border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                       <div className="bg-gray-50 px-6 py-4 border-b border-gray-300 flex justify-between items-center">
                         <div className="flex-1 min-w-0 mr-4">
                           <h6 className="text-sm font-medium text-gray-900 truncate">
@@ -351,8 +422,8 @@ const ExcelDataCollector = () => {
                               required
                             >
                               <option value="">Select File</option>
-                              {Array.isArray(availableSheetNames) && availableSheetNames.map((fileName) => (
-                                <option key={fileName} value={fileName}>
+                              {getDropdownOptions(sheet).map((fileName) => (
+                                <option key={`option-${sheet.id}-${fileName}`} value={fileName}>
                                   {fileName}
                                 </option>
                               ))}
@@ -377,7 +448,7 @@ const ExcelDataCollector = () => {
                       <div className="p-6">
                         <div className="space-y-3 mb-4">
                           {sheet.elements.map((element) => (
-                            <div key={element.id} className="flex flex-col md:flex-row gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div key={`element-${sheet.id}-${element.id}`} className="flex flex-col md:flex-row gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                               <div className="flex-1">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Line Item
@@ -430,12 +501,6 @@ const ExcelDataCollector = () => {
                       </div>
                     </div>
                   ))}
-                  
-                  {sheets.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No sheets added yet. Click "Add Excel Sheet" to get started.</p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
