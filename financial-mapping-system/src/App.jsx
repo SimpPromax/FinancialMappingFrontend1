@@ -8,7 +8,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import TransactionList from './components/Transactions/TransactionList';
 import FinancialCharts from './components/Charts/FinancialCharts';
 import ExcelDownload from './pages/ExcelDownload/ExcelDownload'; // Add this import
-import ExcellInitialiser from './pages/ExcelFormInitialisation/ExcelcellInitialiser';//add this import
+import ExcelInitialiser from './pages/ExcelFormInitialisation/ExcelcelInitialiser';//add this import
 import ViewSavedData from './pages/ExcelFormInitialisation/ViewSavedData';
 
 function App() {
@@ -26,7 +26,7 @@ function App() {
           <Route path="transactions" element={<TransactionList />} />
           <Route path="analytics" element={<FinancialCharts />} />
           <Route path="excel-download" element={<ExcelDownload />} /> {/* Add this route */}
-          <Route path="excellinitialiser" element={<ExcellInitialiser />} /> {/* Add this route */}
+          <Route path="excelinitialiser" element={<ExcelInitialiser />} /> {/* Add this route */}
           <Route path="viewsaveddata" element={<ViewSavedData />} /> {/* Add this route */}
         </Route>
         <Route path="*" element={<NotFound />} />

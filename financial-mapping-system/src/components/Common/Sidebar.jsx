@@ -1,5 +1,5 @@
 // src/components/Sidebar.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { PieChart, List, BarChart3, LogOut, Download, X, FileText, Eye } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,67 +8,53 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
   const { logout, user } = useAuth();
   const [templateExpanded, setTemplateExpanded] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipTimeoutRef = useRef(null);
+  const [tooltip, setTooltip] = useState({
+    show: false,
+    text: '',
+    x: 0,
+    y: 0,
+  });
 
-  const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: PieChart },
-    { path: '/transactions', label: 'Transactions', icon: List },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-    { path: '/excel-download', label: 'Excel Download', icon: Download },
-  ];
+  const tooltipRef = useRef(null);
 
-  const isActive = (path) => location.pathname === path;
+  // ✅ Stable boolean derived from location — no function!
+  const isSubPathActive =
+    location.pathname.startsWith('/excelinitialiser') ||
+    location.pathname.startsWith('/viewsaveddata');
 
-  const isActiveSubPath = () =>
-    location.pathname === '/excellinitialiser' || location.pathname === '/viewsaveddata';
-
-  const handleMouseMove = (e) => {
-    if (!showTooltip) return;
-    
-    // Position tooltip with offset from cursor
-    setTooltipPosition({
-      x: e.clientX + 15,
-      y: e.clientY + 15
-    });
-  };
-
-  const handleMouseEnter = (e) => {
-    // Clear any existing timeout
-    if (tooltipTimeoutRef.current) {
-      clearTimeout(tooltipTimeoutRef.current);
-    }
-    
-    // Show tooltip immediately
-    setShowTooltip(true);
-    setTooltipPosition({
-      x: e.clientX + 15,
-      y: e.clientY + 15
-    });
-    
-    // Only expand the menu on hover, don't force it
-    if (!isActiveSubPath()) {
+  // Auto-expand submenu when on relevant routes
+  useEffect(() => {
+    if (isSubPathActive) {
       setTemplateExpanded(true);
     }
-  };
+  }, [isSubPathActive]);
 
-  const handleMouseLeave = () => {
-    // Hide tooltip with slight delay to prevent flickering
-    tooltipTimeoutRef.current = setTimeout(() => {
-      setShowTooltip(false);
-    }, 100);
-    
-    // Only collapse if not on active subpath
-    if (!isActiveSubPath()) {
-      setTemplateExpanded(false);
+  // Show tooltip near cursor but within viewport bounds
+  const showTooltip = (text, event) => {
+    const padding = 12;
+    const tooltipWidth = 280;
+    const tooltipHeight = 48;
+
+    let x = event.clientX + 12;
+    let y = event.clientY + 12;
+
+    if (x + tooltipWidth > window.innerWidth) {
+      x = window.innerWidth - tooltipWidth - padding;
     }
+    if (y + tooltipHeight > window.innerHeight) {
+      y = window.innerHeight - tooltipHeight - padding;
+    }
+
+    setTooltip({ show: true, text, x, y });
   };
 
-  const handleButtonClick = () => {
-    setTemplateExpanded(!templateExpanded);
-    // Hide tooltip on click since user is interacting with the menu
-    setShowTooltip(false);
+  const hideTooltip = () => {
+    setTooltip((prev) => ({ ...prev, show: false }));
+  };
+
+  const toggleTemplateMenu = () => {
+    setTemplateExpanded((prev) => !prev);
+    hideTooltip();
   };
 
   return (
@@ -81,18 +67,20 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         />
       )}
 
-      {/* Tooltip - Higher z-index to appear above sidebar */}
-      {showTooltip && (
+      {/* Global Tooltip */}
+      {/* Tooltip — rendered at root level with high z-index */}
+      {tooltip.show && (
         <div
-          className="fixed z-100 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg border border-gray-700 whitespace-nowrap pointer-events-none transition-opacity duration-200"
+          ref={tooltipRef}
+          className="fixed bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg border border-gray-700 max-w-xs pointer-events-none"
           style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
+            left: `${tooltip.x}px`,
+            top: `${tooltip.y}px`,
+            zIndex: 1000,
           }}
         >
-          Sets up a clean template with the required column structure
-          {/* Tooltip arrow */}
-          <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+          {tooltip.text}
+          <div className="absolute -left-1 top-1/2 w-2 h-2 bg-gray-900 transform -translate-y-1/2 rotate-45" />
         </div>
       )}
 
@@ -109,7 +97,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 lg:justify-start">
           <h2 className="text-xl font-bold text-gray-900">Financial Mapping</h2>
-          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <button
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
             <X size={22} />
           </button>
         </div>
@@ -117,22 +109,28 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         {/* Navigation */}
         <nav className="flex-1 py-4 space-y-1">
           {/* Main Menu Items */}
-          {menuItems.map((item) => {
+          {[
+            { path: '/dashboard', label: 'Dashboard', icon: PieChart },
+            { path: '/transactions', label: 'Transactions', icon: List },
+            { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+            { path: '/excel-download', label: 'Excel Download', icon: Download },
+          ].map((item) => {
             const IconComp = item.icon;
+            const isActive = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`group flex items-center gap-3 px-6 py-3 mx-2 rounded-lg relative overflow-hidden transition-all duration-300 ${
-                  isActive(item.path)
+                  isActive
                     ? 'text-white font-semibold'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
                 <span
                   className={`absolute inset-y-0 left-2 right-2 rounded-lg transition-all duration-300 ${
-                    isActive(item.path)
+                    isActive
                       ? 'bg-blue-600 scale-100'
                       : 'bg-blue-600 scale-0 group-hover:scale-100 opacity-20'
                   }`}
@@ -146,26 +144,23 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             );
           })}
 
-          {/* Prepare Template - Expandable Item */}
-          <div 
-            className="relative" 
-            onMouseLeave={handleMouseLeave}
-          >
+          {/* Prepare Template Section */}
+          <div className="relative">
             <button
-              onClick={handleButtonClick}
-              onMouseEnter={handleMouseEnter}
-              onMouseMove={handleMouseMove}
+              onClick={toggleTemplateMenu}
               className={`group flex items-center justify-between w-full px-6 py-3 mx-2 rounded-lg relative overflow-hidden transition-all duration-300 ${
-                isActiveSubPath()
+                isSubPathActive
                   ? 'text-white font-semibold'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
               aria-expanded={templateExpanded}
+              aria-haspopup="true"
+              aria-controls="prepare-template-submenu"
             >
               <span className="flex items-center gap-3 flex-1">
                 <span
                   className={`absolute inset-y-0 left-2 right-2 rounded-lg transition-all duration-300 ${
-                    isActiveSubPath()
+                    isSubPathActive
                       ? 'bg-blue-600 scale-100'
                       : 'bg-blue-600 scale-0 group-hover:scale-100 opacity-20'
                   }`}
@@ -177,10 +172,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 <span className="relative z-10">Prepare Template</span>
               </span>
 
-              {/* Arrow / Close Icon */}
-              <span className="relative z-10">
+              <span className="relative z-10 text-gray-500">
                 {templateExpanded ? (
-                  <X size={16} className="text-gray-500" />
+                  <X size={16} />
                 ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -192,7 +186,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="text-gray-500 transition-transform duration-200"
+                    className="transition-transform duration-200"
                   >
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
@@ -202,15 +196,28 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             {/* Submenu */}
             {templateExpanded && (
-              <div className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
+              <div
+                id="prepare-template-submenu"
+                className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3"
+              >
                 <Link
-                  to="/excellinitialiser"
+                  to="/excelinitialiser"
                   onClick={() => {
                     setSidebarOpen(false);
                     setTemplateExpanded(false);
+                    hideTooltip();
                   }}
+                  onMouseEnter={(e) =>
+                    showTooltip(
+                      'Sets up a clean template with the required column structure',
+                      e
+                    )
+                  }
+                  onMouseLeave={hideTooltip}
                   className={`block px-4 py-2 rounded hover:bg-gray-100 ${
-                    isActive('/excellinitialiser') ? 'font-semibold text-blue-600' : 'text-gray-700'
+                    location.pathname.startsWith('/excelinitialiser')
+                      ? 'font-semibold text-blue-600'
+                      : 'text-gray-700'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -218,14 +225,22 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                     <span>Set Up New Data</span>
                   </div>
                 </Link>
+
                 <Link
                   to="/viewsaveddata"
                   onClick={() => {
                     setSidebarOpen(false);
                     setTemplateExpanded(false);
+                    hideTooltip();
                   }}
+                  onMouseEnter={(e) =>
+                    showTooltip('View previously saved template configurations', e)
+                  }
+                  onMouseLeave={hideTooltip}
                   className={`block px-4 py-2 rounded hover:bg-gray-100 ${
-                    isActive('/viewsaveddata') ? 'font-semibold text-blue-600' : 'text-gray-700'
+                    location.pathname.startsWith('/viewsaveddata')
+                      ? 'font-semibold text-blue-600'
+                      : 'text-gray-700'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -245,8 +260,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-gray-900 truncate">{user?.name || 'User'}</div>
-              <div className="text-xs text-gray-500 truncate">{user?.email || ''}</div>
+              <div className="font-semibold text-gray-900 truncate">
+                {user?.name || 'User'}
+              </div>
+              <div className="text-xs text-gray-500 truncate">
+                {user?.email || ''}
+              </div>
             </div>
           </div>
           <button
@@ -254,7 +273,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             className="flex items-center gap-2 w-full px-4 py-2 rounded-lg bg-white border hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition"
           >
             <LogOut size={20} />
-            Logout
+            <span>Logout</span>
           </button>
         </div>
       </div>

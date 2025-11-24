@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Swal from 'sweetalert2';
 import { Plus, Save, Eye, Trash2, X, Info } from 'lucide-react';
 
@@ -13,8 +13,8 @@ const ExcelDataCollector = () => {
   useEffect(() => {
     const loadExcelFiles = async () => {
       try {
-        const response = await axios.get('/api/excel/files');
-        
+        const response = await api.get('/api/excel/files');
+
         if (Array.isArray(response.data)) {
           const fileNames = response.data.map(file => file.fileName).filter(Boolean);
           setAvailableSheetNames(fileNames);
@@ -28,7 +28,7 @@ const ExcelDataCollector = () => {
     };
 
     loadExcelFiles();
-    
+
     // Create default blank sheet
     const defaultSheet = {
       id: Date.now() + Math.random(),
@@ -108,46 +108,46 @@ const ExcelDataCollector = () => {
         confirmButtonText: 'OK',
         confirmButtonColor: '#3085d6',
       });
-      
+
       // Reset the selection for this sheet
-      setSheets(prev => prev.map(sheet => 
-        sheet.id === sheetId 
+      setSheets(prev => prev.map(sheet =>
+        sheet.id === sheetId
           ? { ...sheet, sheetName: '', headerText: 'Select File', elements: [] }
           : sheet
       ));
       return;
     }
 
-    setSheets(prev => prev.map(sheet => 
-      sheet.id === sheetId 
+    setSheets(prev => prev.map(sheet =>
+      sheet.id === sheetId
         ? { ...sheet, sheetName: newSheetName, headerText: newSheetName || 'Select File' }
         : sheet
     ));
 
     if (newSheetName) {
       try {
-        const response = await axios.get(`/api/excel/elements?sheetName=${encodeURIComponent(newSheetName)}`);
+        const response = await api.get(`/api/excel/elements?sheetName=${encodeURIComponent(newSheetName)}`);
         const predefinedElements = Array.isArray(response.data) ? response.data : [];
-        
+
         console.log('🔍 API Response elements:', predefinedElements);
         console.log('🆔 First element ID:', predefinedElements[0]?.elementId);
 
         if (predefinedElements && predefinedElements.length > 0) {
-          setSheets(prev => prev.map(sheet => 
-            sheet.id === sheetId 
-              ? { 
-                  ...sheet, 
-                  elements: predefinedElements.map(el => ({
-                    id: el.elementId || Date.now() + Math.random(),
-                    elementName: el.excelElement || '',
-                    cellValue: el.exelCellValue || ''
-                  }))
-                }
+          setSheets(prev => prev.map(sheet =>
+            sheet.id === sheetId
+              ? {
+                ...sheet,
+                elements: predefinedElements.map(el => ({
+                  id: el.elementId || Date.now() + Math.random(),
+                  elementName: el.excelElement || '',
+                  cellValue: el.exelCellValue || ''
+                }))
+              }
               : sheet
           ));
         } else {
-          setSheets(prev => prev.map(sheet => 
-            sheet.id === sheetId 
+          setSheets(prev => prev.map(sheet =>
+            sheet.id === sheetId
               ? { ...sheet, elements: [] }
               : sheet
           ));
@@ -155,15 +155,15 @@ const ExcelDataCollector = () => {
       } catch (error) {
         console.error('Error loading elements:', error);
         showAlert('error', 'Could not load Excel elements');
-        setSheets(prev => prev.map(sheet => 
-          sheet.id === sheetId 
+        setSheets(prev => prev.map(sheet =>
+          sheet.id === sheetId
             ? { ...sheet, elements: [] }
             : sheet
         ));
       }
     } else {
-      setSheets(prev => prev.map(sheet => 
-        sheet.id === sheetId 
+      setSheets(prev => prev.map(sheet =>
+        sheet.id === sheetId
           ? { ...sheet, elements: [] }
           : sheet
       ));
@@ -171,16 +171,16 @@ const ExcelDataCollector = () => {
   };
 
   const addNewElement = (sheetId) => {
-    setSheets(prev => prev.map(sheet => 
-      sheet.id === sheetId 
-        ? { 
-            ...sheet, 
-            elements: [...sheet.elements, { 
-              id: Date.now() + Math.random(), 
-              elementName: '', 
-              cellValue: '' 
-            }]
-          }
+    setSheets(prev => prev.map(sheet =>
+      sheet.id === sheetId
+        ? {
+          ...sheet,
+          elements: [...sheet.elements, {
+            id: Date.now() + Math.random(),
+            elementName: '',
+            cellValue: ''
+          }]
+        }
         : sheet
     ));
   };
@@ -200,8 +200,8 @@ const ExcelDataCollector = () => {
       reverseButtons: true,
     }).then((result) => {
       if (result.isConfirmed) {
-        setSheets(prev => prev.map(sheet => 
-          sheet.id === sheetId 
+        setSheets(prev => prev.map(sheet =>
+          sheet.id === sheetId
             ? { ...sheet, elements: sheet.elements.filter(el => el.id !== elementId) }
             : sheet
         ));
@@ -210,14 +210,14 @@ const ExcelDataCollector = () => {
   };
 
   const updateElement = (sheetId, elementId, field, value) => {
-    setSheets(prev => prev.map(sheet => 
-      sheet.id === sheetId 
+    setSheets(prev => prev.map(sheet =>
+      sheet.id === sheetId
         ? {
-            ...sheet,
-            elements: sheet.elements.map(el =>
-              el.id === elementId ? { ...el, [field]: value } : el
-            )
-          }
+          ...sheet,
+          elements: sheet.elements.map(el =>
+            el.id === elementId ? { ...el, [field]: value } : el
+          )
+        }
         : sheet
     ));
   };
@@ -226,11 +226,11 @@ const ExcelDataCollector = () => {
     if (sheets.length === 0) return false;
 
     const usedSheetNames = new Set();
-    
+
     for (const sheet of sheets) {
       const sheetName = sheet.sheetName.trim();
       if (!sheetName) return false;
-      
+
       if (usedSheetNames.has(sheetName)) return false;
       usedSheetNames.add(sheetName);
 
@@ -244,7 +244,7 @@ const ExcelDataCollector = () => {
         const cellValue = element.cellValue.trim();
 
         if (!elementName || !cellValue) return false;
-        
+
         if (usedElementNames.has(elementName)) return false;
         usedElementNames.add(elementName);
 
@@ -271,8 +271,8 @@ const ExcelDataCollector = () => {
 
     try {
       setIsLoading(true);
-      const response = await axios.post('/api/excel/save', excelSheets);
-      
+      const response = await api.post('/api/excel/save', excelSheets);
+
       if (response.data.success) {
         Swal.fire({
           icon: 'success',
@@ -302,7 +302,7 @@ const ExcelDataCollector = () => {
 
   // Filter available sheet names to exclude already selected ones
   const getAvailableOptionsForSheet = (currentSheet) => {
-    return availableSheetNames.filter(fileName => 
+    return availableSheetNames.filter(fileName =>
       !sheets.some(sheet => sheet.sheetName === fileName && sheet.id !== currentSheet.id)
     );
   };
@@ -310,17 +310,17 @@ const ExcelDataCollector = () => {
   // Get dropdown options for a specific sheet
   const getDropdownOptions = (sheet) => {
     const availableOptions = getAvailableOptionsForSheet(sheet);
-    
+
     // If this sheet already has a selection, include it in the options
     if (sheet.sheetName && !availableOptions.includes(sheet.sheetName)) {
       return [sheet.sheetName, ...availableOptions];
     }
-    
+
     return availableOptions;
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-cover bg-center bg-fixed"
       style={{ backgroundImage: "url('/webimage2.png')" }}
     >
@@ -336,11 +336,10 @@ const ExcelDataCollector = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('sheet')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                  activeTab === 'sheet'
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${activeTab === 'sheet'
                     ? 'border-black text-black font-semibold'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <span>Excel Sheet</span>
                 {activeTab === 'sheet' && (
@@ -349,11 +348,10 @@ const ExcelDataCollector = () => {
               </button>
               <button
                 onClick={() => setActiveTab('workbook')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                  activeTab === 'workbook'
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${activeTab === 'workbook'
                     ? 'border-black text-black font-semibold'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <span>Excel Workbook</span>
                 {activeTab === 'workbook' && (
@@ -376,15 +374,14 @@ const ExcelDataCollector = () => {
                     <Plus size={16} />
                     <span>Add Excel Sheet</span>
                   </button>
-                  
+
                   <button
                     onClick={saveAllData}
                     disabled={!canSave || isLoading}
-                    className={`neu-btn px-4 py-2 flex items-center space-x-2 font-medium ${
-                      !canSave || isLoading 
-                        ? 'opacity-50 cursor-not-allowed text-gray-400' 
+                    className={`neu-btn px-4 py-2 flex items-center space-x-2 font-medium ${!canSave || isLoading
+                        ? 'opacity-50 cursor-not-allowed text-gray-400'
                         : 'text-gray-700 hover:text-green-700'
-                    }`}
+                      }`}
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
@@ -412,7 +409,7 @@ const ExcelDataCollector = () => {
                             {sheet.headerText}
                           </h6>
                         </div>
-                        
+
                         <div className="flex-1 mx-4">
                           <div className="relative">
                             <select
@@ -463,7 +460,7 @@ const ExcelDataCollector = () => {
                                   required
                                 />
                               </div>
-                              
+
                               <div className="flex-1">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Cell Value
@@ -477,7 +474,7 @@ const ExcelDataCollector = () => {
                                   required
                                 />
                               </div>
-                              
+
                               <div className="flex items-end">
                                 <button
                                   onClick={() => deleteElement(sheet.id, element.id)}

@@ -13,6 +13,7 @@ export default defineConfig({
     tailwindcss()
   ],
   server: {
+    host: true, // <-- This exposes the dev server on your network
     proxy: {
       '/api': {
         target: 'http://localhost:8080', // Your Spring Boot server

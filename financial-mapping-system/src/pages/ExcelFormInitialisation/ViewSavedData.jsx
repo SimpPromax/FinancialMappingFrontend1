@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, RefreshCwIcon, FileTextIcon } from 'lucide-react';
 
@@ -21,7 +21,7 @@ const ViewSavedData = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/excel/data');
+      const response = await api.get('/api/excel/data');
 
       if (Array.isArray(response.data)) {
         setSheets(response.data);
@@ -30,7 +30,7 @@ const ViewSavedData = () => {
         setError('Invalid data format received from server');
       }
     } catch (err) {
-      setError('Failed to load saved data. Please try again.',err);
+      setError('Failed to load saved data. Please try again.', err);
       setSheets([]);
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ const ViewSavedData = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-lg mt-4 sm:mt-8">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <button
@@ -165,7 +165,7 @@ const ViewSavedData = () => {
 
                 <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs sm:text-sm rounded-full font-medium w-fit">
                   {sheet.excelElements?.length || 0} elements
-                  {search.trim() && getDisplayElements(sheet).length !== sheet.excelElements?.length && 
+                  {search.trim() && getDisplayElements(sheet).length !== sheet.excelElements?.length &&
                     ` (${getDisplayElements(sheet).length} filtered)`
                   }
                 </span>

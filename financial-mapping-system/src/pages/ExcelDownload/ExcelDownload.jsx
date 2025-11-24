@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Swal from 'sweetalert2';
+import api from '../../services/api';
 import { Upload, FileText, RefreshCw, Trash2, Book, File } from 'lucide-react';
 
 const ExcelDownload = () => {
@@ -8,6 +9,8 @@ const ExcelDownload = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
+
+
 
   // SweetAlert helpers
   const showError = (title, text) => {
@@ -57,25 +60,20 @@ const ExcelDownload = () => {
       return;
     }
     setIsLoading(true);
+
     const formData = new FormData();
     formData.append('excelFile', selectedFile);
 
     try {
-      const response = await fetch('http://localhost:8080/api/excel/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
-      if (response.ok) {
-        showSuccess('Upload Successful', result.message);
-        setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        loadUploadedFiles();
-      } else {
-        showError('Upload Failed', result.error || 'An unknown error occurred.');
-      }
+      const response = await api.post('/api/excel/upload', formData);
+      showSuccess('Upload Successful', response.data.message);
+
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      loadUploadedFiles();
     } catch (error) {
-      showError('Network Error', `Could not connect to server: ${error.message}`);
+      showError('Upload Failed', error.response?.data?.error || error.message);
     } finally {
       setIsLoading(false);
     }
@@ -83,15 +81,10 @@ const ExcelDownload = () => {
 
   const loadUploadedFiles = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/excel/files');
-      if (response.ok) {
-        const files = await response.json();
-        setUploadedFiles(files);
-      } else {
-        showError('Load Failed', 'Could not retrieve uploaded files.');
-      }
+      const response = await api.get('/api/excel/files');
+      setUploadedFiles(response.data);
     } catch (error) {
-      showError('Network Error', `Error loading files: ${error.message}`);
+      showError('Load Failed', error.response?.data?.error || error.message);
     }
   };
 
@@ -105,22 +98,19 @@ const ExcelDownload = () => {
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#d33',
     });
+
     if (!result.isConfirmed) return;
+
     try {
-      const response = await fetch('http://localhost:8080/api/excel/files', {
-        method: 'DELETE',
+      const response = await api.delete('/api/excel/files', {
+        data: { fileName },
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName }),
       });
-      const data = await response.json();
-      if (response.ok) {
-        showSuccess('Deleted!', data.message || 'File deleted successfully');
-        loadUploadedFiles();
-      } else {
-        showError('Delete Failed', data.error || 'Failed to delete file.');
-      }
+
+      showSuccess('Deleted!', response.data.message || 'File deleted successfully');
+      loadUploadedFiles();
     } catch (error) {
-      showError('Delete Error', error.message);
+      showError('Delete Failed', error.response?.data?.error || error.message);
     }
   };
 
@@ -135,7 +125,7 @@ const ExcelDownload = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-green-50 py-6 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header - responsive text size */}
+        {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
             Excel File Manager
@@ -145,29 +135,28 @@ const ExcelDownload = () => {
           </p>
         </div>
 
-        {/* Card Container - responsive radius & padding */}
+        {/* Card */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
           <div className="p-5 sm:p-8">
-            {/* Tabs - responsive padding */}
+            {/* Tabs */}
             <div className="flex border-b border-gray-200 mb-6">
               <button
-                className={`flex items-center px-4 py-2 sm:px-6 sm:py-3 font-medium text-sm transition-colors ${
-                  activeTab === 'upload'
+                className={`flex items-center px-4 py-2 sm:px-6 sm:py-3 font-medium text-sm transition-colors ${activeTab === 'upload'
                     ? 'text-green-600 border-b-2 border-green-600'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                  }`}
                 onClick={() => setActiveTab('upload')}
               >
                 <Upload size={16} className="mr-2 sm:mr-2" />
                 <span className="hidden xs:inline">Upload Excel</span>
                 <span className="xs:hidden">Upload</span>
               </button>
+
               <button
-                className={`flex items-center px-4 py-2 sm:px-6 sm:py-3 font-medium text-sm transition-colors ${
-                  activeTab === 'view'
+                className={`flex items-center px-4 py-2 sm:px-6 sm:py-3 font-medium text-sm transition-colors ${activeTab === 'view'
                     ? 'text-green-600 border-b-2 border-green-600'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                  }`}
                 onClick={() => {
                   setActiveTab('view');
                   loadUploadedFiles();
@@ -180,7 +169,7 @@ const ExcelDownload = () => {
             </div>
 
             <div className="min-h-80">
-              {/* Upload Tab */}
+              {/* UPLOAD TAB */}
               {activeTab === 'upload' && (
                 <div className="space-y-6">
                   <form onSubmit={handleUpload} className="space-y-6">
@@ -188,6 +177,7 @@ const ExcelDownload = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-3">
                         Upload Excel File
                       </label>
+
                       <div
                         className="border-2 border-dashed border-gray-300 rounded-xl p-6 sm:p-8 text-center cursor-pointer transition-colors hover:border-green-500 hover:bg-green-50"
                         onDragOver={handleDragOver}
@@ -196,14 +186,13 @@ const ExcelDownload = () => {
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <FileText size={40} className="mx-auto text-green-500 mb-3 sm:mb-4" />
+
                         <h5 className="text-base sm:text-lg font-medium text-gray-700 mb-2">
                           Drag & Drop Excel File Here
                         </h5>
-                        <p className="text-gray-500 mb-3 sm:mb-4 text-sm">
-                          or
-                        </p>
 
-                        {/* Hide "Browse Files" on very small screens — drag & drop is primary */}
+                        <p className="text-gray-500 mb-3 sm:mb-4 text-sm">or</p>
+
                         <button
                           type="button"
                           className="px-4 py-1.5 sm:px-6 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
@@ -273,16 +262,18 @@ const ExcelDownload = () => {
                 </div>
               )}
 
-              {/* View Uploads Tab */}
+              {/* VIEW UPLOADS TAB */}
               {activeTab === 'view' && (
                 <div className="space-y-6">
                   <div className="text-center">
                     <h4 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
                       Uploaded Files
                     </h4>
+
                     <p className="text-gray-600 mb-4 text-sm sm:text-base">
                       Recently uploaded Excel files
                     </p>
+
                     <button
                       onClick={loadUploadedFiles}
                       className="px-4 py-1.5 sm:px-6 sm:py-2 text-sm sm:text-base border border-green-600 text-green-600 rounded-full hover:bg-green-50 transition-colors flex items-center mx-auto"
@@ -292,7 +283,7 @@ const ExcelDownload = () => {
                     </button>
                   </div>
 
-                  {/* Mobile: Card View */}
+                  {/* MOBILE CARD VIEW */}
                   <div className="lg:hidden space-y-4">
                     {uploadedFiles.length === 0 ? (
                       <div className="text-center py-8">
@@ -312,17 +303,21 @@ const ExcelDownload = () => {
                               ) : (
                                 <File size={18} className="text-blue-500 mt-0.5 mr-2 shrink-0" />
                               )}
+
                               <div>
-                                <div className="font-medium text-gray-900 text-sm">{file.fileName}</div>
+                                <div className="font-medium text-gray-900 text-sm">
+                                  {file.fileName}
+                                </div>
+
                                 <span
-                                  className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                    file.isWorkbook
+                                  className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${file.isWorkbook
                                       ? 'bg-green-100 text-green-800'
                                       : 'bg-blue-100 text-blue-800'
-                                  }`}
+                                    }`}
                                 >
                                   {file.isWorkbook ? 'Workbook' : 'Worksheet'}
                                 </span>
+
                                 <div className="text-xs text-gray-500 mt-1">
                                   {new Date(file.downloadDate).toLocaleString([], {
                                     year: '2-digit',
@@ -334,6 +329,7 @@ const ExcelDownload = () => {
                                 </div>
                               </div>
                             </div>
+
                             <button
                               onClick={() => handleDeleteFile(file.fileName)}
                               className="p-1.5 text-red-500 hover:bg-red-50 rounded"
@@ -347,7 +343,7 @@ const ExcelDownload = () => {
                     )}
                   </div>
 
-                  {/* Desktop: Table View */}
+                  {/* DESKTOP TABLE VIEW */}
                   <div className="hidden lg:block">
                     <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-x-auto">
                       {uploadedFiles.length === 0 ? (
@@ -362,17 +358,21 @@ const ExcelDownload = () => {
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-4">
                                 File Name
                               </th>
+
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-4">
                                 Type
                               </th>
+
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-4">
                                 Upload Date
                               </th>
+
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6 sm:py-4">
                                 Actions
                               </th>
                             </tr>
                           </thead>
+
                           <tbody className="bg-white divide-y divide-gray-200">
                             {uploadedFiles.map((file) => (
                               <tr key={file.id} className="hover:bg-gray-50">
@@ -388,20 +388,22 @@ const ExcelDownload = () => {
                                     </span>
                                   </div>
                                 </td>
+
                                 <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                                   <span
-                                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full sm:px-3 sm:py-1 sm:text-sm ${
-                                      file.isWorkbook
+                                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full sm:px-3 sm:py-1 sm:text-sm ${file.isWorkbook
                                         ? 'bg-green-100 text-green-800'
                                         : 'bg-blue-100 text-blue-800'
-                                    }`}
+                                      }`}
                                   >
                                     {file.isWorkbook ? 'Workbook' : 'Worksheet'}
                                   </span>
                                 </td>
+
                                 <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500">
                                   {new Date(file.downloadDate).toLocaleString()}
                                 </td>
+
                                 <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                                   <button
                                     onClick={() => handleDeleteFile(file.fileName)}
@@ -418,8 +420,10 @@ const ExcelDownload = () => {
                       )}
                     </div>
                   </div>
+
                 </div>
               )}
+
             </div>
           </div>
         </div>
